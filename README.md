@@ -1,6 +1,94 @@
-# Getting Started with Create React App
+# Event Management React Application
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A production-ready React 18 web application for comprehensive event management with real-time Q&A, polling, and AI-powered summaries.
+
+## 🚀 Features
+
+- **Event Management**: Create, view, and manage events with detailed information
+- **Agenda Management**: Organize event schedules with speakers and time slots
+- **Q&A System**: Interactive question and answer sessions with upvoting
+- **Live Polling**: Create polls with real-time results visualization
+- **AI Summaries**: AI-generated summaries for events and agenda items
+- **Responsive Design**: Beautiful, modern UI that works on all devices
+- **Real-time Updates**: Powered by React Query for optimal data fetching
+
+## 🛠️ Tech Stack
+
+- **React 18** - UI framework
+- **React Router v6** - Routing
+- **React Query (@tanstack/react-query)** - Server state management
+- **Tailwind CSS** - Styling
+- **Axios** - API client
+- **Formik + Yup** - Form handling and validation
+- **Recharts** - Data visualization
+- **Framer Motion** - Animations
+- **React Hot Toast** - Notifications
+- **Heroicons** - Icon library
+- **date-fns** - Date formatting
+
+## 📦 Installation
+
+1. Clone the repository and navigate to the project directory
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Configure environment variables:
+```bash
+cp .env.example .env
+```
+
+Edit `.env` and set your API URL:
+```env
+REACT_APP_API_URL=http://localhost:8080/api
+```
+
+4. Start the development server:
+```bash
+npm start
+```
+
+The app will open at [http://localhost:3000](http://localhost:3000)
+
+## 🏗️ Project Structure
+
+```
+src/
+├── api/                    # API client and endpoints
+│   ├── axiosClient.js     # Axios configuration with interceptors
+│   ├── eventApi.js        # Event-related API calls
+│   ├── agendaApi.js       # Agenda-related API calls
+│   ├── questionApi.js     # Q&A API calls
+│   └── pollApi.js         # Polling API calls
+├── components/            # React components
+│   ├── EventCard.jsx      # Event list card
+│   ├── AgendaItemCard.jsx # Agenda item card
+│   ├── QuestionItem.jsx   # Question/answer card
+│   ├── PollCard.jsx       # Poll with chart visualization
+│   └── UI/                # Reusable UI components
+├── pages/                 # Page components
+│   ├── EventsPage.jsx     # Events list and creation
+│   ├── EventDetailsPage.jsx # Event details with agenda
+│   └── AgendaPage.jsx     # Q&A, polls, and summaries
+├── context/               # React context
+│   └── AuthContext.jsx    # Authentication state
+├── hooks/                 # Custom hooks
+│   └── useEvent.js        # Event-related queries
+├── App.js                 # Main app component with routing
+└── index.js               # Entry point
+```
+
+## 🎨 UI/UX Features
+
+- **Modern Design**: Clean, minimalistic interface with soft shadows
+- **Responsive Layout**: Grid-based layouts that adapt to all screen sizes
+- **Smooth Animations**: Subtle transitions using Framer Motion
+- **Toast Notifications**: Real-time feedback for user actions
+- **Loading States**: Skeleton loaders and spinners
+- **Empty States**: Helpful messages with action buttons
+- **Card-based Design**: Organized content in elegant cards
 
 ## Available Scripts
 
