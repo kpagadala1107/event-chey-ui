@@ -12,6 +12,7 @@ import {
 import { eventApi } from '../api/eventApi';
 import { agendaApi } from '../api/agendaApi';
 import AgendaItemCard from '../components/AgendaItemCard';
+import AgendaTimeline from '../components/AgendaTimeline';
 import AttendeeList from '../components/AttendeeList';
 import Button from '../components/UI/Button';
 import Modal from '../components/UI/Modal';
@@ -29,6 +30,7 @@ const EventDetailsPage = () => {
   const queryClient = useQueryClient();
   const [isAddAgendaModalOpen, setIsAddAgendaModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('agenda'); // 'agenda' or 'attendees'
+  const [editingAgenda, setEditingAgenda] = useState(null);
 
   const { data: event, isLoading: isLoadingEvent } = useQuery({
     queryKey: ['event', eventId],
@@ -39,6 +41,12 @@ const EventDetailsPage = () => {
   const agenda = event?.agenda || [];
   const isLoadingAgenda = isLoadingEvent;
 
+  // Fetch all agenda items separately for timeline view
+  const { data: agendaItems, isLoading: isLoadingAgendaItems } = useQuery({
+    queryKey: ['agenda', eventId],
+    queryFn: () => agendaApi.getAgenda(eventId),
+  });
+
   const { data: summary, isLoading: isLoadingSummary } = useQuery({
     queryKey: ['eventSummary', eventId],
     queryFn: () => eventApi.getEventSummary(eventId),
@@ -48,9 +56,32 @@ const EventDetailsPage = () => {
     mutationFn: (data) => agendaApi.addAgendaItem(eventId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['event', eventId] });
+      queryClient.invalidateQueries({ queryKey: ['agenda', eventId] });
       toast.success('Agenda item added successfully!');
       setIsAddAgendaModalOpen(false);
       formik.resetForm();
+      setEditingAgenda(null);
+    },
+  });
+
+  const updateAgendaMutation = useMutation({
+    mutationFn: ({ agendaId, data }) => agendaApi.updateAgendaItem(eventId, agendaId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['event', eventId] });
+      queryClient.invalidateQueries({ queryKey: ['agenda', eventId] });
+      toast.success('Agenda item updated successfully!');
+      setIsAddAgendaModalOpen(false);
+      formik.resetForm();
+      setEditingAgenda(null);
+    },
+  });
+
+  const deleteAgendaMutation = useMutation({
+    mutationFn: (agendaId) => agendaApi.deleteAgendaItem(eventId, agendaId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['event', eventId] });
+      queryClient.invalidateQueries({ queryKey: ['agenda', eventId] });
+      toast.success('Agenda item deleted successfully!');
     },
   });
 
@@ -69,21 +100,58 @@ const EventDetailsPage = () => {
       startTime: '',
       endTime: '',
       speaker: '',
+      location: '',
     },
     validationSchema: Yup.object({
       title: Yup.string().required('Title is required'),
       description: Yup.string(),
       startTime: Yup.string().required('Start time is required'),
-      endTime: Yup.string(),
+      endTime: Yup.string().required('End time is required'),
       speaker: Yup.string(),
+      location: Yup.string(),
     }),
     onSubmit: (values) => {
-      addAgendaMutation.mutate(values);
+      if (editingAgenda) {
+        updateAgendaMutation.mutate({ agendaId: editingAgenda.id, data: values });
+      } else {
+        addAgendaMutation.mutate(values);
+      }
     },
   });
 
   const handleAgendaItemClick = (agendaId, section) => {
     navigate(`/events/${eventId}/agenda/${agendaId}?tab=${section}`);
+  };
+
+  const handleEditAgenda = (agenda) => {
+    setEditingAgenda(agenda);
+    
+    // Extract time from DateTime string (e.g., "2025-12-01T09:00:00" -> "09:00")
+    const extractTime = (dateTimeString) => {
+      if (!dateTimeString) return '';
+      const timePart = dateTimeString.split('T')[1];
+      return timePart ? timePart.substring(0, 5) : dateTimeString;
+    };
+    
+    formik.setValues({
+      title: agenda.title,
+      description: agenda.description || '',
+      speaker: agenda.speaker || '',
+      startTime: extractTime(agenda.startTime),
+      endTime: extractTime(agenda.endTime),
+      location: agenda.location || '',
+    });
+    setIsAddAgendaModalOpen(true);
+  };
+
+  const handleDeleteAgenda = (agendaId) => {
+    deleteAgendaMutation.mutate(agendaId);
+  };
+
+  const handleAddNewAgenda = () => {
+    setEditingAgenda(null);
+    formik.resetForm();
+    setIsAddAgendaModalOpen(true);
   };
 
   if (isLoadingEvent) {
@@ -175,40 +243,15 @@ const EventDetailsPage = () => {
           <div className="lg:col-span-2 space-y-6">
             {/* Agenda Section */}
             {activeTab === 'agenda' && (
-              <div className="bg-white rounded-xl shadow-sm p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-semibold text-gray-900">Agenda</h2>
-                <Button size="sm" onClick={() => setIsAddAgendaModalOpen(true)}>
-                  <PlusIcon className="h-4 w-4 mr-1" />
-                  Add Item
-                </Button>
-              </div>
-
-              {isLoadingAgenda ? (
-                <Spinner />
-              ) : agenda && agenda.length > 0 ? (
-                <div className="space-y-4">
-                  {agenda.map((item) => (
-                    <AgendaItemCard
-                      key={item.id}
-                      agendaItem={item}
-                      onClick={(section) => handleAgendaItemClick(item.id, section)}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <EmptyState
-                  title="No agenda items yet"
-                  description="Add your first agenda item to get started"
-                  action={
-                    <Button size="sm" onClick={() => setIsAddAgendaModalOpen(true)}>
-                      <PlusIcon className="h-4 w-4 mr-1" />
-                      Add Item
-                    </Button>
-                  }
-                />
-              )}
-            </div>
+              <AgendaTimeline
+                event={event}
+                agendaItems={agendaItems || []}
+                isLoading={isLoadingAgendaItems}
+                onEdit={handleEditAgenda}
+                onDelete={handleDeleteAgenda}
+                onAddNew={handleAddNewAgenda}
+                showAddButton={true}
+              />
             )}
 
             {/* Attendees Section */}
@@ -274,14 +317,15 @@ const EventDetailsPage = () => {
         </div>
       </div>
 
-      {/* Add Agenda Modal */}
+      {/* Add/Edit Agenda Modal */}
       <Modal
         isOpen={isAddAgendaModalOpen}
         onClose={() => {
           setIsAddAgendaModalOpen(false);
           formik.resetForm();
+          setEditingAgenda(null);
         }}
-        title="Add Agenda Item"
+        title={editingAgenda ? 'Edit Agenda Item' : 'Add Agenda Item'}
       >
         <form onSubmit={formik.handleSubmit} className="space-y-4">
           <Input
@@ -313,7 +357,7 @@ const EventDetailsPage = () => {
             <Input
               label="Start Time"
               name="startTime"
-              type="datetime-local"
+              type="time"
               value={formik.values.startTime}
               onChange={formik.handleChange}
               onBlur={formik.handleBlur}
@@ -323,7 +367,7 @@ const EventDetailsPage = () => {
             <Input
               label="End Time"
               name="endTime"
-              type="datetime-local"
+              type="time"
               value={formik.values.endTime}
               onChange={formik.handleChange}
               onBlur={formik.handleBlur}
@@ -341,9 +385,19 @@ const EventDetailsPage = () => {
             error={formik.touched.speaker && formik.errors.speaker}
           />
 
+          <Input
+            label="Location"
+            name="location"
+            placeholder="Room or venue (optional)"
+            value={formik.values.location}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            error={formik.touched.location && formik.errors.location}
+          />
+
           <div className="flex gap-3 pt-4">
-            <Button type="submit" fullWidth loading={addAgendaMutation.isPending}>
-              Add Agenda Item
+            <Button type="submit" fullWidth loading={addAgendaMutation.isPending || updateAgendaMutation.isPending}>
+              {editingAgenda ? 'Update' : 'Add'} Agenda Item
             </Button>
             <Button
               type="button"
@@ -352,6 +406,7 @@ const EventDetailsPage = () => {
               onClick={() => {
                 setIsAddAgendaModalOpen(false);
                 formik.resetForm();
+                setEditingAgenda(null);
               }}
             >
               Cancel

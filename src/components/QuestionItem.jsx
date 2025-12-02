@@ -55,12 +55,12 @@ const QuestionItem = ({ question, onUpvote, onAnswer }) => {
                 <span>by {question.askedBy || 'Anonymous'}</span>
                 <span>•</span>
                 <span>{question.timestamp || 'Just now'}</span>
-                {question.answered && (
+                {question.answers && question.answers.length > 0 && (
                   <>
                     <span>•</span>
                     <span className="flex items-center text-green-600">
                       <CheckCircleIcon className="h-4 w-4 mr-1" />
-                      Answered
+                      {question.answers.length} {question.answers.length === 1 ? 'Answer' : 'Answers'}
                     </span>
                   </>
                 )}
@@ -69,20 +69,26 @@ const QuestionItem = ({ question, onUpvote, onAnswer }) => {
           </div>
 
           {/* Answer Section */}
-          {question.answer && (
-            <div className="mt-4 pl-4 border-l-2 border-indigo-200 bg-indigo-50 p-4 rounded-r-lg">
-              <p className="text-sm font-medium text-indigo-900 mb-1">Answer:</p>
-              <p className="text-gray-700">{question.answer}</p>
-              {question.answeredBy && (
-                <p className="text-sm text-gray-500 mt-2">
-                  — {question.answeredBy}
-                </p>
-              )}
+          {question.answers && question.answers.length > 0 && (
+            <div className="mt-4 space-y-3">
+              {question.answers.map((ans, index) => (
+                <div key={index} className="pl-4 border-l-2 border-indigo-200 bg-indigo-50 p-4 rounded-r-lg">
+                  <p className="text-sm font-medium text-indigo-900 mb-1">
+                    Answer {question.answers.length > 1 ? `#${index + 1}` : ''}:
+                  </p>
+                  <p className="text-gray-700">{ans.answer || ans}</p>
+                  {ans.answeredBy && (
+                    <p className="text-sm text-gray-500 mt-2">
+                      — {ans.answeredBy}
+                    </p>
+                  )}
+                </div>
+              ))}
             </div>
           )}
 
           {/* Answer Form for Speakers */}
-          {isSpeaker && !question.answered && (
+          {isSpeaker && (
             <div className="mt-4">
               {!showAnswerForm ? (
                 <button
@@ -90,7 +96,7 @@ const QuestionItem = ({ question, onUpvote, onAnswer }) => {
                   className="flex items-center text-sm text-indigo-600 hover:text-indigo-700 font-medium"
                 >
                   <ChatBubbleLeftIcon className="h-4 w-4 mr-1" />
-                  Answer this question
+                  {question.answers && question.answers.length > 0 ? 'Add another answer' : 'Answer this question'}
                 </button>
               ) : (
                 <AnimatePresence>

@@ -77,6 +77,15 @@ const AgendaItemCard = ({ agendaItem, onClick }) => {
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
+                    onClick && onClick('summary');
+                  }}
+                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
+                >
+                  AI Summary
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
                     onClick && onClick('questions');
                   }}
                   className="flex-1 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
@@ -91,15 +100,6 @@ const AgendaItemCard = ({ agendaItem, onClick }) => {
                   className="flex-1 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                 >
                   Polls ({agendaItem.pollCount || 0})
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onClick && onClick('summary');
-                  }}
-                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
-                >
-                  View Details
                 </button>
               </div>
             </div>
