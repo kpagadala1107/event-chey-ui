@@ -23,7 +23,7 @@ import * as Yup from 'yup';
 import toast from 'react-hot-toast';
 
 const AgendaPage = () => {
-  const { agendaId } = useParams();
+  const { eventId, agendaId } = useParams();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') || 'questions';
@@ -34,32 +34,34 @@ const AgendaPage = () => {
   const [pollOptions, setPollOptions] = useState(['', '']);
 
   const { data: agendaItem, isLoading: isLoadingAgenda } = useQuery({
-    queryKey: ['agendaItem', agendaId],
-    queryFn: () => agendaApi.getAgendaItem(agendaId),
+    queryKey: ['agendaItem', eventId, agendaId],
+    queryFn: () => agendaApi.getAgendaItem(eventId, agendaId),
   });
 
   const { data: questions, isLoading: isLoadingQuestions } = useQuery({
-    queryKey: ['questions', agendaId],
-    queryFn: () => questionApi.getQuestions(agendaId),
+    queryKey: ['questions', eventId, agendaId],
+    queryFn: () => questionApi.getQuestions(eventId, agendaId),
     enabled: activeTab === 'questions',
   });
 
   const { data: polls, isLoading: isLoadingPolls } = useQuery({
-    queryKey: ['polls', agendaId],
-    queryFn: () => pollApi.getPolls(agendaId),
+    queryKey: ['polls', eventId, agendaId],
+    queryFn: () => pollApi.getPolls(eventId, agendaId),
     enabled: activeTab === 'polls',
   });
 
   const { data: summary, isLoading: isLoadingSummary } = useQuery({
-    queryKey: ['agendaSummary', agendaId],
-    queryFn: () => agendaApi.getAgendaSummary(agendaId),
+    queryKey: ['agendaSummary', eventId, agendaId],
+    queryFn: () => agendaApi.getAgendaSummary(eventId, agendaId),
     enabled: activeTab === 'summary',
   });
 
   const addQuestionMutation = useMutation({
-    mutationFn: (data) => questionApi.addQuestion(agendaId, data),
+    mutationFn: (data) => questionApi.addQuestion(eventId, agendaId, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['questions', agendaId] });
+      queryClient.invalidateQueries({ queryKey: ['questions', eventId, agendaId] });
+      queryClient.invalidateQueries({ queryKey: ['agendaItem', eventId, agendaId] });
+      queryClient.invalidateQueries({ queryKey: ['event', eventId] });
       toast.success('Question added successfully!');
       setIsAddQuestionModalOpen(false);
       questionFormik.resetForm();
@@ -67,24 +69,28 @@ const AgendaPage = () => {
   });
 
   const upvoteMutation = useMutation({
-    mutationFn: questionApi.upvoteQuestion,
+    mutationFn: (questionId) => questionApi.upvoteQuestion(eventId, agendaId, questionId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['questions', agendaId] });
+      queryClient.invalidateQueries({ queryKey: ['questions', eventId, agendaId] });
+      queryClient.invalidateQueries({ queryKey: ['event', eventId] });
     },
   });
 
   const answerMutation = useMutation({
-    mutationFn: ({ questionId, answer }) => questionApi.answerQuestion(questionId, answer),
+    mutationFn: ({ questionId, answer }) => questionApi.answerQuestion(eventId, agendaId, questionId, answer),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['questions', agendaId] });
+      queryClient.invalidateQueries({ queryKey: ['questions', eventId, agendaId] });
+      queryClient.invalidateQueries({ queryKey: ['event', eventId] });
       toast.success('Answer submitted successfully!');
     },
   });
 
   const createPollMutation = useMutation({
-    mutationFn: (data) => pollApi.createPoll(agendaId, data),
+    mutationFn: (data) => pollApi.createPoll(eventId, agendaId, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['polls', agendaId] });
+      queryClient.invalidateQueries({ queryKey: ['polls', eventId, agendaId] });
+      queryClient.invalidateQueries({ queryKey: ['agendaItem', eventId, agendaId] });
+      queryClient.invalidateQueries({ queryKey: ['event', eventId] });
       toast.success('Poll created successfully!');
       setIsAddPollModalOpen(false);
       pollFormik.resetForm();
@@ -93,17 +99,18 @@ const AgendaPage = () => {
   });
 
   const voteMutation = useMutation({
-    mutationFn: ({ pollId, optionId }) => pollApi.submitVote(pollId, optionId),
+    mutationFn: ({ pollId, optionId }) => pollApi.submitVote(eventId, agendaId, pollId, optionId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['polls', agendaId] });
+      queryClient.invalidateQueries({ queryKey: ['polls', eventId, agendaId] });
+      queryClient.invalidateQueries({ queryKey: ['event', eventId] });
       toast.success('Vote submitted successfully!');
     },
   });
 
   const regenerateSummaryMutation = useMutation({
-    mutationFn: () => agendaApi.regenerateAgendaSummary(agendaId),
+    mutationFn: () => agendaApi.regenerateAgendaSummary(eventId, agendaId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['agendaSummary', agendaId] });
+      queryClient.invalidateQueries({ queryKey: ['agendaSummary', eventId, agendaId] });
       toast.success('Summary regenerated successfully!');
     },
   });
@@ -137,7 +144,7 @@ const AgendaPage = () => {
       }
       createPollMutation.mutate({
         ...values,
-        options: validOptions.map(text => ({ text })),
+        options: validOptions,
       });
     },
   });

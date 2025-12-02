@@ -33,27 +33,41 @@ const EventsPage = () => {
     },
   });
 
-  const formik = useFormik({
-    initialValues: {
-      name: '',
-      description: '',
-      startDate: '',
-      endDate: '',
-      location: '',
-    },
-    validationSchema: Yup.object({
-      name: Yup.string().required('Event name is required'),
-      description: Yup.string(),
-      startDate: Yup.date().required('Start date is required'),
-      endDate: Yup.date()
-        .required('End date is required')
-        .min(Yup.ref('startDate'), 'End date must be after start date'),
-      location: Yup.string(),
-    }),
-    onSubmit: (values) => {
-      createEventMutation.mutate(values);
-    },
-  });
+const formik = useFormik({
+  initialValues: {
+    name: '',
+    description: '',
+    startDate: '',
+    endDate: '',
+    location: '',
+    createdBy: '', // Added createdBy
+  },
+  validationSchema: Yup.object({
+    name: Yup.string().required('Event name is required'),
+    description: Yup.string(),
+    startDate: Yup.string().required('Start date and time is required'),
+    endDate: Yup.string()
+      .required('End date and time is required')
+      .test(
+        'is-after-start',
+        'End date must be after start date',
+        function (value) {
+          const { startDate } = this.parent;
+          return !startDate || !value || new Date(value) > new Date(startDate);
+        }
+      ),
+    location: Yup.string(),
+    createdBy: Yup.string(), // Add validation if required
+  }),
+  onSubmit: (values) => {
+    const payload = {
+      ...values,
+      startDate: new Date(values.startDate).toISOString(),
+      endDate: new Date(values.endDate).toISOString(),
+    };
+    createEventMutation.mutate(payload);
+  },
+});
 
   const filteredEvents = events?.filter(event =>
     event.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -176,11 +190,21 @@ const EventsPage = () => {
             />
           </div>
 
+          <Input
+            label="Created By"
+            name="createdBy"
+            placeholder="Enter creator's name"
+            value={formik.values.createdBy}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            error={formik.touched.createdBy && formik.errors.createdBy}
+          />
+
           <div className="grid grid-cols-2 gap-4">
             <Input
               label="Start Date"
               name="startDate"
-              type="date"
+              type="datetime-local"
               value={formik.values.startDate}
               onChange={formik.handleChange}
               onBlur={formik.handleBlur}
@@ -190,7 +214,7 @@ const EventsPage = () => {
             <Input
               label="End Date"
               name="endDate"
-              type="date"
+              type="datetime-local"
               value={formik.values.endDate}
               onChange={formik.handleChange}
               onBlur={formik.handleBlur}

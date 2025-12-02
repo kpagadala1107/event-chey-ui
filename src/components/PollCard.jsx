@@ -15,13 +15,18 @@ const PollCard = ({ poll, onVote, hasVoted = false }) => {
     }
   };
 
-  const totalVotes = poll.options?.reduce((sum, opt) => sum + (opt.votes || 0), 0) || 0;
+  // Calculate total votes from the votes object
+  const totalVotes = poll.votes ? Object.values(poll.votes).reduce((sum, count) => sum + count, 0) : 0;
 
-  const chartData = poll.options?.map(opt => ({
-    name: opt.text.length > 20 ? opt.text.substring(0, 20) + '...' : opt.text,
-    votes: opt.votes || 0,
-    percentage: totalVotes > 0 ? ((opt.votes || 0) / totalVotes * 100).toFixed(1) : 0,
-  })) || [];
+  // Transform options array and votes object into chart data
+  const chartData = poll.options?.map(optionText => {
+    const votes = poll.votes?.[optionText] || 0;
+    return {
+      name: optionText.length > 20 ? optionText.substring(0, 20) + '...' : optionText,
+      votes: votes,
+      percentage: totalVotes > 0 ? ((votes / totalVotes) * 100).toFixed(1) : 0,
+    };
+  }) || [];
 
   return (
     <motion.div
@@ -41,29 +46,29 @@ const PollCard = ({ poll, onVote, hasVoted = false }) => {
       {!hasVoted && !poll.hasVoted ? (
         // Voting Interface
         <div className="space-y-3">
-          {poll.options?.map((option, index) => (
+          {poll.options?.map((optionText, index) => (
             <motion.div
-              key={option.id || index}
+              key={index}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => setSelectedOption(option.id || index)}
+              onClick={() => setSelectedOption(optionText)}
               className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                selectedOption === (option.id || index)
+                selectedOption === optionText
                   ? 'border-indigo-600 bg-indigo-50'
                   : 'border-gray-200 hover:border-gray-300 bg-white'
               }`}
             >
               <div className="flex items-center gap-3">
                 <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                  selectedOption === (option.id || index)
+                  selectedOption === optionText
                     ? 'border-indigo-600 bg-indigo-600'
                     : 'border-gray-300'
                 }`}>
-                  {selectedOption === (option.id || index) && (
+                  {selectedOption === optionText && (
                     <CheckCircleIcon className="h-4 w-4 text-white" />
                   )}
                 </div>
-                <span className="font-medium text-gray-900">{option.text}</span>
+                <span className="font-medium text-gray-900">{optionText}</span>
               </div>
             </motion.div>
           ))}
@@ -123,14 +128,15 @@ const PollCard = ({ poll, onVote, hasVoted = false }) => {
 
           {/* Detailed Results */}
           <div className="space-y-2">
-            {poll.options?.map((option, index) => {
-              const percentage = totalVotes > 0 ? ((option.votes || 0) / totalVotes * 100) : 0;
+            {poll.options?.map((optionText, index) => {
+              const votes = poll.votes?.[optionText] || 0;
+              const percentage = totalVotes > 0 ? ((votes / totalVotes) * 100) : 0;
               return (
-                <div key={option.id || index} className="space-y-1">
+                <div key={index} className="space-y-1">
                   <div className="flex justify-between text-sm">
-                    <span className="font-medium text-gray-900">{option.text}</span>
+                    <span className="font-medium text-gray-900">{optionText}</span>
                     <span className="text-gray-500">
-                      {option.votes || 0} ({percentage.toFixed(1)}%)
+                      {votes} ({percentage.toFixed(1)}%)
                     </span>
                   </div>
                   <div className="h-2 bg-gray-200 rounded-full overflow-hidden">

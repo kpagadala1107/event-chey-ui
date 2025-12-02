@@ -12,6 +12,7 @@ import {
 import { eventApi } from '../api/eventApi';
 import { agendaApi } from '../api/agendaApi';
 import AgendaItemCard from '../components/AgendaItemCard';
+import AttendeeList from '../components/AttendeeList';
 import Button from '../components/UI/Button';
 import Modal from '../components/UI/Modal';
 import Input from '../components/UI/Input';
@@ -27,16 +28,16 @@ const EventDetailsPage = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [isAddAgendaModalOpen, setIsAddAgendaModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('agenda'); // 'agenda' or 'attendees'
 
   const { data: event, isLoading: isLoadingEvent } = useQuery({
     queryKey: ['event', eventId],
     queryFn: () => eventApi.getEvent(eventId),
   });
 
-  const { data: agenda, isLoading: isLoadingAgenda } = useQuery({
-    queryKey: ['agenda', eventId],
-    queryFn: () => agendaApi.getAgenda(eventId),
-  });
+  // Extract agenda from event object (it's embedded in the response)
+  const agenda = event?.agenda || [];
+  const isLoadingAgenda = isLoadingEvent;
 
   const { data: summary, isLoading: isLoadingSummary } = useQuery({
     queryKey: ['eventSummary', eventId],
@@ -46,7 +47,7 @@ const EventDetailsPage = () => {
   const addAgendaMutation = useMutation({
     mutationFn: (data) => agendaApi.addAgendaItem(eventId, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['agenda', eventId] });
+      queryClient.invalidateQueries({ queryKey: ['event', eventId] });
       toast.success('Agenda item added successfully!');
       setIsAddAgendaModalOpen(false);
       formik.resetForm();
@@ -82,7 +83,7 @@ const EventDetailsPage = () => {
   });
 
   const handleAgendaItemClick = (agendaId, section) => {
-    navigate(`/agenda/${agendaId}?tab=${section}`);
+    navigate(`/events/${eventId}/agenda/${agendaId}?tab=${section}`);
   };
 
   if (isLoadingEvent) {
@@ -143,11 +144,38 @@ const EventDetailsPage = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Tab Navigation */}
+        <div className="mb-6 border-b border-gray-200">
+          <nav className="-mb-px flex space-x-8">
+            <button
+              onClick={() => setActiveTab('agenda')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'agenda'
+                  ? 'border-indigo-500 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Agenda
+            </button>
+            <button
+              onClick={() => setActiveTab('attendees')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'attendees'
+                  ? 'border-indigo-500 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Attendees
+            </button>
+          </nav>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
             {/* Agenda Section */}
-            <div className="bg-white rounded-xl shadow-sm p-6">
+            {activeTab === 'agenda' && (
+              <div className="bg-white rounded-xl shadow-sm p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-semibold text-gray-900">Agenda</h2>
                 <Button size="sm" onClick={() => setIsAddAgendaModalOpen(true)}>
@@ -181,6 +209,12 @@ const EventDetailsPage = () => {
                 />
               )}
             </div>
+            )}
+
+            {/* Attendees Section */}
+            {activeTab === 'attendees' && (
+              <AttendeeList eventId={eventId} />
+            )}
           </div>
 
           {/* Sidebar */}
