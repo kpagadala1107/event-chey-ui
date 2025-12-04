@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { XMarkIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { attendeeApi } from '../api/attendeeApi';
 import Button from './UI/Button';
 import Input from './UI/Input';

@@ -56,7 +56,7 @@ const AgendaTimeline = ({
     if (event && event.startDate && event.endDate) {
       setSelectedDate(getInitialDate());
     }
-  }, [event?.startDate, event?.endDate]);
+  }, [event, event?.startDate, event?.endDate, getInitialDate]);
 
   // Generate time slots (6 AM to 11 PM in 30-min intervals)
   const generateTimeSlots = () => {

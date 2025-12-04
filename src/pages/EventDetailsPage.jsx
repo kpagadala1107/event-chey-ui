@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   ArrowLeftIcon, 
-  PlusIcon,
   SparklesIcon,
   CalendarIcon,
   MapPinIcon,
@@ -11,14 +10,12 @@ import {
 } from '@heroicons/react/24/outline';
 import { eventApi } from '../api/eventApi';
 import { agendaApi } from '../api/agendaApi';
-import AgendaItemCard from '../components/AgendaItemCard';
 import AgendaTimeline from '../components/AgendaTimeline';
 import AttendeeList from '../components/AttendeeList';
 import Button from '../components/UI/Button';
 import Modal from '../components/UI/Modal';
 import Input from '../components/UI/Input';
 import Spinner from '../components/UI/Spinner';
-import EmptyState from '../components/UI/EmptyState';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import toast from 'react-hot-toast';
@@ -40,7 +37,6 @@ const EventDetailsPage = () => {
 
   // Extract agenda from event object (it's embedded in the response)
   const agenda = event?.agenda || [];
-  const isLoadingAgenda = isLoadingEvent;
 
   // Fetch all agenda items separately for timeline view
   const { data: agendaItems, isLoading: isLoadingAgendaItems } = useQuery({
@@ -120,10 +116,6 @@ const EventDetailsPage = () => {
       }
     },
   });
-
-  const handleAgendaItemClick = (agendaId, section) => {
-    navigate(`/events/${eventId}/agenda/${agendaId}?tab=${section}`);
-  };
 
   const handleEditAgenda = (agenda) => {
     setEditingAgenda(agenda);
@@ -300,22 +292,22 @@ const EventDetailsPage = () => {
                       <div className="prose prose-slate max-w-none prose-headings:text-gray-900 prose-h3:text-lg prose-h3:font-semibold prose-h3:mb-3 prose-h3:mt-6 prose-p:text-gray-700 prose-p:leading-relaxed prose-strong:text-gray-900 prose-strong:font-semibold prose-ul:list-disc prose-ul:pl-5 prose-ul:space-y-1 prose-li:text-gray-700">
                         <ReactMarkdown
                           components={{
-                            h3: ({ node, ...props }) => (
+                            h3: ({ ...props }) => (
                               <h3 className="text-lg font-semibold text-gray-900 mt-6 mb-3 first:mt-0" {...props} />
                             ),
-                            h2: ({ node, ...props }) => (
+                            h2: ({ ...props }) => (
                               <h2 className="text-xl font-bold text-gray-900 mt-8 mb-4 first:mt-0" {...props} />
                             ),
-                            p: ({ node, ...props }) => (
+                            p: ({ ...props }) => (
                               <p className="text-gray-700 leading-relaxed mb-4" {...props} />
                             ),
-                            strong: ({ node, ...props }) => (
+                            strong: ({ ...props }) => (
                               <strong className="font-semibold text-gray-900" {...props} />
                             ),
-                            ul: ({ node, ...props }) => (
+                            ul: ({ ...props }) => (
                               <ul className="list-disc pl-5 space-y-2 mb-4" {...props} />
                             ),
-                            li: ({ node, ...props }) => (
+                            li: ({ ...props }) => (
                               <li className="text-gray-700" {...props} />
                             ),
                           }}

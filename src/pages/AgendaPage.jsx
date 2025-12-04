@@ -4,7 +4,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   ArrowLeftIcon, 
   PlusIcon,
-  SparklesIcon,
   ChatBubbleLeftRightIcon,
   ChartBarIcon,
   CalendarIcon,
