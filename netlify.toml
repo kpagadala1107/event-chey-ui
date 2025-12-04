@@ -1,0 +1,13 @@
+[build]
+  command = "npm run build"
+  publish = "build"
+
+# Environment variables for production build
+[build.environment]
+  REACT_APP_API_URL = "https://event-chey-api-production.up.railway.app/api"
+
+# Redirect all requests to index.html for client-side routing
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
