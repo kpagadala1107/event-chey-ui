@@ -31,7 +31,7 @@ const AgendaPage = () => {
   const { eventId, agendaId } = useParams();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = searchParams.get('tab') || (agendaId ? 'summary' : 'timeline');
+  const activeTab = searchParams.get('tab') || (agendaId ? 'details' : 'timeline');
   const queryClient = useQueryClient();
 
   const [isAddQuestionModalOpen, setIsAddQuestionModalOpen] = useState(false);
@@ -40,6 +40,7 @@ const AgendaPage = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [pollOptions, setPollOptions] = useState(['', '']);
   const [editingAgenda, setEditingAgenda] = useState(null);
+  const [isEditingAgendaDetails, setIsEditingAgendaDetails] = useState(false);
 
   // Fetch event details for date range
   const { data: event } = useQuery({
@@ -56,7 +57,7 @@ const AgendaPage = () => {
   const { data: agendaItem, isLoading: isLoadingAgenda } = useQuery({
     queryKey: ['agendaItem', eventId, agendaId],
     queryFn: () => agendaApi.getAgendaItem(eventId, agendaId),
-    enabled: !!agendaId,
+    enabled: !!agendaId, // Fetch whenever agendaId exists, regardless of active tab
   });
 
   const { data: questions, isLoading: isLoadingQuestions } = useQuery({
@@ -69,12 +70,6 @@ const AgendaPage = () => {
     queryKey: ['polls', eventId, agendaId],
     queryFn: () => pollApi.getPolls(eventId, agendaId),
     enabled: !!agendaId && activeTab === 'polls',
-  });
-
-  const { data: summary, isLoading: isLoadingSummary } = useQuery({
-    queryKey: ['agendaSummary', eventId, agendaId],
-    queryFn: () => agendaApi.getAgendaSummary(eventId, agendaId),
-    enabled: !!agendaId && activeTab === 'summary',
   });
 
   const addQuestionMutation = useMutation({
@@ -106,6 +101,16 @@ const AgendaPage = () => {
     },
   });
 
+  const editAnswerMutation = useMutation({
+    mutationFn: ({ questionId, answerIndex, answer }) => 
+      questionApi.editAnswer(eventId, agendaId, questionId, answerIndex, answer),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['questions', eventId, agendaId] });
+      queryClient.invalidateQueries({ queryKey: ['event', eventId] });
+      toast.success('Answer updated successfully!');
+    },
+  });
+
   const createPollMutation = useMutation({
     mutationFn: (data) => pollApi.createPoll(eventId, agendaId, data),
     onSuccess: () => {
@@ -128,14 +133,6 @@ const AgendaPage = () => {
     },
   });
 
-  const regenerateSummaryMutation = useMutation({
-    mutationFn: () => agendaApi.regenerateAgendaSummary(eventId, agendaId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['agendaSummary', eventId, agendaId] });
-      toast.success('Summary regenerated successfully!');
-    },
-  });
-
   const addAgendaMutation = useMutation({
     mutationFn: (data) => agendaApi.addAgendaItem(eventId, data),
     onSuccess: () => {
@@ -152,11 +149,13 @@ const AgendaPage = () => {
     mutationFn: ({ agendaId, data }) => agendaApi.updateAgendaItem(eventId, agendaId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['agenda', eventId] });
+      queryClient.invalidateQueries({ queryKey: ['agendaItem', eventId, agendaId] });
       queryClient.invalidateQueries({ queryKey: ['event', eventId] });
       toast.success('Agenda item updated successfully!');
       setIsAddAgendaModalOpen(false);
       agendaFormik.resetForm();
       setEditingAgenda(null);
+      setIsEditingAgendaDetails(false);
     },
   });
 
@@ -225,21 +224,30 @@ const AgendaPage = () => {
       location: Yup.string(),
     }),
     onSubmit: (values) => {
-      // Combine date with time to create full DateTime strings
-      const dateString = selectedDate.toISOString().split('T')[0]; // YYYY-MM-DD
+      // Determine the date to use
+      let dateString;
+      
+      if (isEditingAgendaDetails && agendaItem) {
+        // When editing from details tab, use the agenda item's existing date
+        dateString = agendaItem.startTime.split('T')[0];
+      } else {
+        // When adding new or editing from timeline, use selected date
+        dateString = selectedDate.toISOString().split('T')[0];
+      }
       
       const agendaData = {
         title: values.title,
         description: values.description,
         speaker: values.speaker,
         location: values.location,
-        startTime: `${dateString}T${values.startTime}:00`, // YYYY-MM-DDTHH:mm:ss
-        endTime: `${dateString}T${values.endTime}:00`,     // YYYY-MM-DDTHH:mm:ss
-        date: dateString, // Keep date field for filtering
+        startTime: `${dateString}T${values.startTime}:00`,
+        endTime: `${dateString}T${values.endTime}:00`,
+        date: dateString,
       };
       
-      if (editingAgenda) {
-        updateAgendaMutation.mutate({ agendaId: editingAgenda.id, data: agendaData });
+      if (editingAgenda || (isEditingAgendaDetails && agendaItem)) {
+        const itemId = editingAgenda?.id || agendaItem.id;
+        updateAgendaMutation.mutate({ agendaId: itemId, data: agendaData });
       } else {
         addAgendaMutation.mutate(agendaData);
       }
@@ -324,7 +332,33 @@ const AgendaPage = () => {
   };
 
   const handleViewAgenda = (agenda) => {
-    navigate(`/events/${eventId}/agenda/${agenda.id}?tab=questions`);
+    navigate(`/events/${eventId}/agenda/${agenda.id}?tab=details`);
+  };
+
+  const handleEditAgendaDetails = () => {
+    if (!agendaItem) return;
+    
+    setIsEditingAgendaDetails(true);
+    
+    const extractTime = (dateTimeString) => {
+      if (!dateTimeString) return '';
+      const timePart = dateTimeString.split('T')[1];
+      return timePart ? timePart.substring(0, 5) : dateTimeString;
+    };
+    
+    agendaFormik.setValues({
+      title: agendaItem.title,
+      description: agendaItem.description || '',
+      speaker: agendaItem.speaker || '',
+      startTime: extractTime(agendaItem.startTime),
+      endTime: extractTime(agendaItem.endTime),
+      location: agendaItem.location || '',
+    });
+  };
+
+  const handleCancelEditAgendaDetails = () => {
+    setIsEditingAgendaDetails(false);
+    agendaFormik.resetForm();
   };
 
   // Calculate agenda item position on timeline
@@ -364,6 +398,15 @@ const AgendaPage = () => {
   // If we have agendaId, show the detail view with tabs
   const showDetailView = !!agendaId;
 
+  // Debug logging
+  console.log('AgendaPage Debug:', {
+    agendaId,
+    activeTab,
+    showDetailView,
+    hasAgendaItem: !!agendaItem,
+    isLoadingAgenda
+  });
+
   // Handle back navigation
   const handleBackNavigation = () => {
     if (showDetailView) {
@@ -402,15 +445,15 @@ const AgendaPage = () => {
           {showDetailView && (
             <div className="mt-6 flex gap-4 border-b border-gray-200">
               <button
-                onClick={() => setTab('summary')}
+                onClick={() => setTab('details')}
                 className={`pb-3 px-1 font-medium text-sm transition-colors ${
-                  activeTab === 'summary'
+                  activeTab === 'details'
                     ? 'border-b-2 border-indigo-600 text-indigo-600'
                     : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
-                <SparklesIcon className="h-5 w-5 inline mr-2" />
-                AI Summary
+                <CalendarIcon className="h-5 w-5 inline mr-2" />
+                Agenda Details
               </button>
               <button
                 onClick={() => setTab('questions')}
@@ -628,37 +671,244 @@ const AgendaPage = () => {
           </div>
         )}
 
-        {/* Summary Tab */}
-        {activeTab === 'summary' && (
-          <div>
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-semibold text-gray-900">AI Summary</h2>
-              <Button
-                variant="outline"
-                onClick={() => regenerateSummaryMutation.mutate()}
-                loading={regenerateSummaryMutation.isPending}
-              >
-                <SparklesIcon className="h-5 w-5 mr-2" />
-                Regenerate
-              </Button>
+        {/* Agenda Details Tab */}
+        {showDetailView && activeTab === 'details' && agendaItem && (
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div className="bg-gradient-to-r from-indigo-500 to-purple-600 px-6 py-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-semibold text-white">Agenda Details</h2>
+                {!isEditingAgendaDetails ? (
+                  <Button
+                    variant="outline"
+                    onClick={handleEditAgendaDetails}
+                    className="bg-white text-indigo-600 hover:bg-gray-50"
+                  >
+                    <PencilIcon className="h-5 w-5 mr-2" />
+                    Edit
+                  </Button>
+                ) : (
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => agendaFormik.handleSubmit()}
+                      loading={updateAgendaMutation.isPending}
+                      className="bg-white text-indigo-600 hover:bg-gray-50"
+                    >
+                      Save Changes
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      onClick={handleCancelEditAgendaDetails}
+                      className="bg-white/20 text-white hover:bg-white/30"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
 
-            {isLoadingSummary ? (
-              <Spinner />
-            ) : (
-              <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl shadow-sm p-8 border border-indigo-100">
-                <div className="prose max-w-none">
-                  <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
-                    {summary?.summary || summary?.text || 'No summary available. The AI summary will be generated based on the agenda content, questions, and poll results.'}
-                  </p>
+            <div className="p-6">
+              {!isEditingAgendaDetails ? (
+                <div className="space-y-6">
+                  {/* Title */}
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500 mb-2">Title</h3>
+                    <p className="text-lg font-semibold text-gray-900">{agendaItem.title}</p>
+                  </div>
+
+                  {/* Description */}
+                  {agendaItem.description && (
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500 mb-2">Description</h3>
+                      <p className="text-gray-700 leading-relaxed">{agendaItem.description}</p>
+                    </div>
+                  )}
+
+                  {/* Time */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500 mb-2">Start Time</h3>
+                      <div className="flex items-center text-gray-900">
+                        <ClockIcon className="h-5 w-5 mr-2 text-indigo-600" />
+                        <span className="font-medium">
+                          {agendaItem.startTime ? 
+                            new Date(agendaItem.startTime).toLocaleTimeString('en-US', { 
+                              hour: '2-digit', 
+                              minute: '2-digit' 
+                            }) 
+                            : 'N/A'}
+                        </span>
+                      </div>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500 mb-2">End Time</h3>
+                      <div className="flex items-center text-gray-900">
+                        <ClockIcon className="h-5 w-5 mr-2 text-indigo-600" />
+                        <span className="font-medium">
+                          {agendaItem.endTime ? 
+                            new Date(agendaItem.endTime).toLocaleTimeString('en-US', { 
+                              hour: '2-digit', 
+                              minute: '2-digit' 
+                            }) 
+                            : 'N/A'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Date */}
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500 mb-2">Date</h3>
+                    <div className="flex items-center text-gray-900">
+                      <CalendarIcon className="h-5 w-5 mr-2 text-indigo-600" />
+                      <span className="font-medium">
+                        {agendaItem.startTime ? 
+                          new Date(agendaItem.startTime).toLocaleDateString('en-US', { 
+                            weekday: 'long',
+                            year: 'numeric', 
+                            month: 'long', 
+                            day: 'numeric' 
+                          }) 
+                          : 'N/A'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Speaker */}
+                  {agendaItem.speaker && (
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500 mb-2">Speaker</h3>
+                      <p className="text-gray-900 font-medium">👤 {agendaItem.speaker}</p>
+                    </div>
+                  )}
+
+                  {/* Location */}
+                  {agendaItem.location && (
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500 mb-2">Location</h3>
+                      <p className="text-gray-900 font-medium">📍 {agendaItem.location}</p>
+                    </div>
+                  )}
+
+                  {/* Stats */}
+                  <div className="border-t border-gray-200 pt-6">
+                    <h3 className="text-sm font-medium text-gray-500 mb-4">Statistics</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-indigo-50 rounded-lg p-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-600">Questions</span>
+                          <ChatBubbleLeftRightIcon className="h-5 w-5 text-indigo-600" />
+                        </div>
+                        <p className="text-2xl font-bold text-gray-900 mt-2">
+                          {agendaItem.questionCount || 0}
+                        </p>
+                      </div>
+                      <div className="bg-purple-50 rounded-lg p-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-600">Polls</span>
+                          <ChartBarIcon className="h-5 w-5 text-purple-600" />
+                        </div>
+                        <p className="text-2xl font-bold text-gray-900 mt-2">
+                          {agendaItem.pollCount || 0}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            )}
+              ) : (
+                <form onSubmit={agendaFormik.handleSubmit} className="space-y-6">
+                  {/* Edit Form */}
+                  <Input
+                    label="Title"
+                    name="title"
+                    placeholder="e.g., Keynote Speech"
+                    value={agendaFormik.values.title}
+                    onChange={agendaFormik.handleChange}
+                    onBlur={agendaFormik.handleBlur}
+                    error={agendaFormik.touched.title && agendaFormik.errors.title}
+                  />
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Description
+                    </label>
+                    <textarea
+                      name="description"
+                      placeholder="Brief description of the agenda item"
+                      rows={4}
+                      value={agendaFormik.values.description}
+                      onChange={agendaFormik.handleChange}
+                      onBlur={agendaFormik.handleBlur}
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input
+                      label="Start Time"
+                      name="startTime"
+                      type="time"
+                      value={agendaFormik.values.startTime}
+                      onChange={agendaFormik.handleChange}
+                      onBlur={agendaFormik.handleBlur}
+                      error={agendaFormik.touched.startTime && agendaFormik.errors.startTime}
+                    />
+
+                    <Input
+                      label="End Time"
+                      name="endTime"
+                      type="time"
+                      value={agendaFormik.values.endTime}
+                      onChange={agendaFormik.handleChange}
+                      onBlur={agendaFormik.handleBlur}
+                      error={agendaFormik.touched.endTime && agendaFormik.errors.endTime}
+                    />
+                  </div>
+
+                  <Input
+                    label="Speaker"
+                    name="speaker"
+                    placeholder="Speaker name (optional)"
+                    value={agendaFormik.values.speaker}
+                    onChange={agendaFormik.handleChange}
+                    onBlur={agendaFormik.handleBlur}
+                  />
+
+                  <Input
+                    label="Location"
+                    name="location"
+                    placeholder="Room or venue (optional)"
+                    value={agendaFormik.values.location}
+                    onChange={agendaFormik.handleChange}
+                    onBlur={agendaFormik.handleBlur}
+                  />
+
+                  <div className="bg-indigo-50 p-4 rounded-lg">
+                    <p className="text-sm text-gray-700">
+                      <CalendarIcon className="h-4 w-4 inline mr-1 text-indigo-600" />
+                      Date: <span className="font-medium">
+                        {agendaItem.startTime ? 
+                          new Date(agendaItem.startTime).toLocaleDateString('en-US', { 
+                            weekday: 'short',
+                            year: 'numeric', 
+                            month: 'short', 
+                            day: 'numeric' 
+                          }) 
+                          : 'N/A'}
+                      </span>
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Note: To change the date, please edit from the timeline view
+                    </p>
+                  </div>
+                </form>
+              )}
+            </div>
           </div>
         )}
 
         {/* Questions Tab */}
-        {activeTab === 'questions' && (
+        {showDetailView && activeTab === 'questions' && (
           <div>
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-semibold text-gray-900">Questions & Answers</h2>
@@ -678,6 +928,9 @@ const AgendaPage = () => {
                     question={question}
                     onUpvote={(id) => upvoteMutation.mutate(id)}
                     onAnswer={(id, answer) => answerMutation.mutate({ questionId: id, answer })}
+                    onEditAnswer={(questionId, answerIndex, answer) => 
+                      editAnswerMutation.mutate({ questionId, answerIndex, answer })
+                    }
                   />
                 ))}
               </div>
@@ -698,7 +951,7 @@ const AgendaPage = () => {
         )}
 
         {/* Polls Tab */}
-        {activeTab === 'polls' && (
+        {showDetailView && activeTab === 'polls' && (
           <div>
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-semibold text-gray-900">Polls</h2>

@@ -1,11 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { CalendarIcon, UserGroupIcon, MapPinIcon } from '@heroicons/react/24/outline';
+import { CalendarIcon, UserGroupIcon, MapPinIcon, PencilIcon } from '@heroicons/react/24/outline';
 import { format } from 'date-fns';
+import EditEventModal from './EditEventModal';
 
-const EventCard = ({ event }) => {
+const EventCard = ({ event, onEventUpdated }) => {
   const navigate = useNavigate();
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   const formatDate = (dateString) => {
     try {
@@ -15,25 +17,46 @@ const EventCard = ({ event }) => {
     }
   };
 
+  const handleEditClick = (e) => {
+    e.stopPropagation(); // Prevent card click navigation
+    setIsEditModalOpen(true);
+  };
+
+  const handleEventUpdated = (updatedEvent) => {
+    if (onEventUpdated) {
+      onEventUpdated(updatedEvent);
+    }
+  };
+
   return (
-    <motion.div
-      whileHover={{ scale: 1.02, boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)' }}
-      whileTap={{ scale: 0.98 }}
-      onClick={() => navigate(`/events/${event.id}`)}
-      className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 p-6 cursor-pointer border border-gray-100"
-    >
-      <div className="flex items-start justify-between mb-4">
-        <h3 className="text-xl font-semibold text-gray-900 flex-1 mr-2">
-          {event.name}
-        </h3>
-        <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-          event.status === 'ACTIVE' ? 'bg-green-100 text-green-800' :
-          event.status === 'UPCOMING' ? 'bg-blue-100 text-blue-800' :
-          'bg-gray-100 text-gray-800'
-        }`}>
-          {event.status || 'UPCOMING'}
-        </span>
-      </div>
+    <>
+      <motion.div
+        whileHover={{ scale: 1.02, boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)' }}
+        whileTap={{ scale: 0.98 }}
+        onClick={() => navigate(`/events/${event.id}`)}
+        className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 p-6 cursor-pointer border border-gray-100"
+      >
+        <div className="flex items-start justify-between mb-4">
+          <h3 className="text-xl font-semibold text-gray-900 flex-1 mr-2">
+            {event.name}
+          </h3>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleEditClick}
+              className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+              title="Edit event"
+            >
+              <PencilIcon className="h-5 w-5" />
+            </button>
+            <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+              event.status === 'ACTIVE' ? 'bg-green-100 text-green-800' :
+              event.status === 'UPCOMING' ? 'bg-blue-100 text-blue-800' :
+              'bg-gray-100 text-gray-800'
+            }`}>
+              {event.status || 'UPCOMING'}
+            </span>
+          </div>
+        </div>
 
       {event.description && (
         <p className="text-gray-600 text-sm mb-4 line-clamp-2">
@@ -74,7 +97,15 @@ const EventCard = ({ event }) => {
           ))}
         </div>
       )}
-    </motion.div>
+      </motion.div>
+
+      <EditEventModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        event={event}
+        onEventUpdated={handleEventUpdated}
+      />
+    </>
   );
 };
 

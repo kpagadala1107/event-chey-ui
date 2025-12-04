@@ -28,6 +28,11 @@ export const questionApi = {
     return response.data;
   },
 
+  editAnswer: async (eventId, agendaId, questionId, answerIndex, answer) => {
+    const response = await axiosClient.put(`/events/${eventId}/agenda/${agendaId}/questions/${questionId}/answer`, { answer });
+    return response.data;
+  },
+
   upvoteQuestion: async (eventId, agendaId, questionId) => {
     const response = await axiosClient.post(`/events/${eventId}/agenda/${agendaId}/questions/${questionId}/upvote`);
     return response.data;

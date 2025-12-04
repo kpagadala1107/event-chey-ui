@@ -23,13 +23,14 @@ import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
+import ReactMarkdown from 'react-markdown';
 
 const EventDetailsPage = () => {
   const { eventId } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [isAddAgendaModalOpen, setIsAddAgendaModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('agenda'); // 'agenda' or 'attendees'
+  const [activeTab, setActiveTab] = useState('agenda'); // 'agenda', 'attendees', or 'summary'
   const [editingAgenda, setEditingAgenda] = useState(null);
 
   const { data: event, isLoading: isLoadingEvent } = useQuery({
@@ -50,6 +51,7 @@ const EventDetailsPage = () => {
   const { data: summary, isLoading: isLoadingSummary } = useQuery({
     queryKey: ['eventSummary', eventId],
     queryFn: () => eventApi.getEventSummary(eventId),
+    enabled: activeTab === 'summary', // Only fetch when Summary tab is active
   });
 
   const addAgendaMutation = useMutation({
@@ -235,6 +237,16 @@ const EventDetailsPage = () => {
             >
               Attendees
             </button>
+            <button
+              onClick={() => setActiveTab('summary')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'summary'
+                  ? 'border-indigo-500 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              AI Summary
+            </button>
           </nav>
         </div>
 
@@ -258,39 +270,91 @@ const EventDetailsPage = () => {
             {activeTab === 'attendees' && (
               <AttendeeList eventId={eventId} />
             )}
+
+            {/* AI Summary Section */}
+            {activeTab === 'summary' && (
+              <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+                <div className="bg-gradient-to-r from-indigo-500 to-purple-600 px-6 py-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xl font-semibold text-white flex items-center">
+                      <SparklesIcon className="h-6 w-6 mr-2" />
+                      AI Generated Summary
+                    </h3>
+                    <button
+                      onClick={() => regenerateSummaryMutation.mutate()}
+                      disabled={regenerateSummaryMutation.isPending}
+                      className="px-4 py-2 text-sm text-indigo-600 bg-white hover:bg-gray-50 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                    >
+                      {regenerateSummaryMutation.isPending ? 'Regenerating...' : 'Regenerate Summary'}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-6">
+                  {isLoadingSummary ? (
+                    <div className="flex justify-center py-12">
+                      <Spinner size="lg" />
+                    </div>
+                  ) : summary?.cachedAiSummary ? (
+                    <div>
+                      <div className="prose prose-slate max-w-none prose-headings:text-gray-900 prose-h3:text-lg prose-h3:font-semibold prose-h3:mb-3 prose-h3:mt-6 prose-p:text-gray-700 prose-p:leading-relaxed prose-strong:text-gray-900 prose-strong:font-semibold prose-ul:list-disc prose-ul:pl-5 prose-ul:space-y-1 prose-li:text-gray-700">
+                        <ReactMarkdown
+                          components={{
+                            h3: ({ node, ...props }) => (
+                              <h3 className="text-lg font-semibold text-gray-900 mt-6 mb-3 first:mt-0" {...props} />
+                            ),
+                            h2: ({ node, ...props }) => (
+                              <h2 className="text-xl font-bold text-gray-900 mt-8 mb-4 first:mt-0" {...props} />
+                            ),
+                            p: ({ node, ...props }) => (
+                              <p className="text-gray-700 leading-relaxed mb-4" {...props} />
+                            ),
+                            strong: ({ node, ...props }) => (
+                              <strong className="font-semibold text-gray-900" {...props} />
+                            ),
+                            ul: ({ node, ...props }) => (
+                              <ul className="list-disc pl-5 space-y-2 mb-4" {...props} />
+                            ),
+                            li: ({ node, ...props }) => (
+                              <li className="text-gray-700" {...props} />
+                            ),
+                          }}
+                        >
+                          {summary.cachedAiSummary}
+                        </ReactMarkdown>
+                      </div>
+                      {summary.aiSummaryGeneratedAt && (
+                        <div className="mt-6 pt-4 border-t border-gray-200">
+                          <p className="text-xs text-gray-500 flex items-center">
+                            <SparklesIcon className="h-4 w-4 mr-1" />
+                            Generated: {format(new Date(summary.aiSummaryGeneratedAt), 'MMMM dd, yyyy h:mm a')}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="py-12 text-center">
+                      <SparklesIcon className="h-16 w-16 mx-auto text-gray-300 mb-4" />
+                      <h4 className="text-lg font-medium text-gray-900 mb-2">No Summary Available</h4>
+                      <p className="text-gray-500 text-sm mb-6">
+                        Generate an AI-powered summary of your event to get insights and highlights.
+                      </p>
+                      <button
+                        onClick={() => regenerateSummaryMutation.mutate()}
+                        disabled={regenerateSummaryMutation.isPending}
+                        className="px-6 py-2 text-sm text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {regenerateSummaryMutation.isPending ? 'Generating...' : 'Generate Summary'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Sidebar */}
           <div className="space-y-6">
-            {/* AI Summary */}
-            <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl shadow-sm p-6 border border-indigo-100">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                  <SparklesIcon className="h-5 w-5 mr-2 text-indigo-600" />
-                  AI Summary
-                </h3>
-                <button
-                  onClick={() => regenerateSummaryMutation.mutate()}
-                  disabled={regenerateSummaryMutation.isPending}
-                  className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
-                >
-                  {regenerateSummaryMutation.isPending ? 'Generating...' : 'Refresh'}
-                </button>
-              </div>
-
-              {isLoadingSummary ? (
-                <Spinner size="sm" />
-              ) : summary ? (
-                <p className="text-gray-700 text-sm leading-relaxed">
-                  {summary.summary || summary.text || 'No summary available'}
-                </p>
-              ) : (
-                <p className="text-gray-500 text-sm italic">
-                  Summary will be generated based on event content
-                </p>
-              )}
-            </div>
-
             {/* Quick Stats */}
             <div className="bg-white rounded-xl shadow-sm p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Stats</h3>

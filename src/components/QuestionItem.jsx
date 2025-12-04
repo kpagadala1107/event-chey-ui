@@ -1,25 +1,43 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { 
   HandThumbUpIcon, 
-  ChatBubbleLeftIcon,
-  CheckCircleIcon 
+  CheckCircleIcon,
+  PencilIcon
 } from '@heroicons/react/24/outline';
 import { HandThumbUpIcon as HandThumbUpIconSolid } from '@heroicons/react/24/solid';
-import { useAuth } from '../context/AuthContext';
 import Button from './UI/Button';
 
-const QuestionItem = ({ question, onUpvote, onAnswer }) => {
-  const { isSpeaker } = useAuth();
-  const [showAnswerForm, setShowAnswerForm] = useState(false);
-  const [answer, setAnswer] = useState('');
+const QuestionItem = ({ question, onUpvote, onAnswer, onEditAnswer }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [answerText, setAnswerText] = useState('');
 
-  const handleSubmitAnswer = () => {
-    if (answer.trim()) {
-      onAnswer(question.id, answer);
-      setAnswer('');
-      setShowAnswerForm(false);
+  // Get the single answer (first one if exists)
+  const hasAnswer = question.answer;
+  const currentAnswer = hasAnswer ? question.answer  : '';
+
+  const handleSubmitOrEdit = () => {
+    if (answerText.trim()) {
+      if (hasAnswer && isEditing) {
+        // Edit existing answer
+        onEditAnswer && onEditAnswer(question.id, 0, answerText);
+      } else {
+        // Add new answer
+        onAnswer(question.id, answerText);
+      }
+      setAnswerText('');
+      setIsEditing(false);
     }
+  };
+
+  const handleEditClick = () => {
+    setAnswerText(currentAnswer);
+    setIsEditing(true);
+  };
+
+  const handleCancel = () => {
+    setAnswerText('');
+    setIsEditing(false);
   };
 
   return (
@@ -55,12 +73,12 @@ const QuestionItem = ({ question, onUpvote, onAnswer }) => {
                 <span>by {question.askedBy || 'Anonymous'}</span>
                 <span>•</span>
                 <span>{question.timestamp || 'Just now'}</span>
-                {question.answers && question.answers.length > 0 && (
+                {hasAnswer && (
                   <>
                     <span>•</span>
                     <span className="flex items-center text-green-600">
                       <CheckCircleIcon className="h-4 w-4 mr-1" />
-                      {question.answers.length} {question.answers.length === 1 ? 'Answer' : 'Answers'}
+                      Answered
                     </span>
                   </>
                 )}
@@ -68,69 +86,57 @@ const QuestionItem = ({ question, onUpvote, onAnswer }) => {
             </div>
           </div>
 
-          {/* Answer Section */}
-          {question.answers && question.answers.length > 0 && (
-            <div className="mt-4 space-y-3">
-              {question.answers.map((ans, index) => (
-                <div key={index} className="pl-4 border-l-2 border-indigo-200 bg-indigo-50 p-4 rounded-r-lg">
-                  <p className="text-sm font-medium text-indigo-900 mb-1">
-                    Answer {question.answers.length > 1 ? `#${index + 1}` : ''}:
-                  </p>
-                  <p className="text-gray-700">{ans.answer || ans}</p>
-                  {ans.answeredBy && (
-                    <p className="text-sm text-gray-500 mt-2">
-                      — {ans.answeredBy}
-                    </p>
-                  )}
+          {/* Single Answer Display */}
+          {hasAnswer && !isEditing && (
+            <div className="mt-4">
+              <div className="pl-4 border-l-2 border-indigo-200 bg-indigo-50 p-4 rounded-r-lg">
+                <div className="flex items-start justify-between mb-1">
+                  <p className="text-sm font-medium text-indigo-900">Answer:</p>
+                  <button
+                    onClick={handleEditClick}
+                    className="text-indigo-600 hover:text-indigo-700 p-1 rounded hover:bg-indigo-100 transition-colors"
+                    title="Edit answer"
+                  >
+                    <PencilIcon className="h-4 w-4" />
+                  </button>
                 </div>
-              ))}
+                <p className="text-gray-700">{currentAnswer}</p>
+                {question.askedBy && (
+                  <p className="text-sm text-gray-500 mt-2">
+                    — {question.askedBy}
+                  </p>
+                )}
+              </div>
             </div>
           )}
 
-          {/* Answer Form for Speakers */}
-          {isSpeaker && (
+          {/* Answer Form (for new answer or editing) */}
+          {(!hasAnswer || isEditing) && (
             <div className="mt-4">
-              {!showAnswerForm ? (
-                <button
-                  onClick={() => setShowAnswerForm(true)}
-                  className="flex items-center text-sm text-indigo-600 hover:text-indigo-700 font-medium"
-                >
-                  <ChatBubbleLeftIcon className="h-4 w-4 mr-1" />
-                  {question.answers && question.answers.length > 0 ? 'Add another answer' : 'Answer this question'}
-                </button>
-              ) : (
-                <AnimatePresence>
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    className="space-y-3"
-                  >
-                    <textarea
-                      value={answer}
-                      onChange={(e) => setAnswer(e.target.value)}
-                      placeholder="Type your answer..."
-                      rows={3}
-                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
-                    />
-                    <div className="flex gap-2">
-                      <Button size="sm" onClick={handleSubmitAnswer}>
-                        Submit Answer
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => {
-                          setShowAnswerForm(false);
-                          setAnswer('');
-                        }}
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  </motion.div>
-                </AnimatePresence>
-              )}
+              <div className="space-y-3">
+                <textarea
+                  value={answerText}
+                  onChange={(e) => setAnswerText(e.target.value)}
+                  placeholder={isEditing ? "Edit your answer..." : "Type your answer..."}
+                  rows={3}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+                  autoFocus
+                />
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={handleSubmitOrEdit}>
+                    {isEditing ? 'Save Changes' : 'Submit Answer'}
+                  </Button>
+                  {isEditing && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={handleCancel}
+                    >
+                      Cancel
+                    </Button>
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </div>
