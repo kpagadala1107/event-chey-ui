@@ -292,11 +292,11 @@ const EventDetailsPage = () => {
                       <div className="prose prose-slate max-w-none prose-headings:text-gray-900 prose-h3:text-lg prose-h3:font-semibold prose-h3:mb-3 prose-h3:mt-6 prose-p:text-gray-700 prose-p:leading-relaxed prose-strong:text-gray-900 prose-strong:font-semibold prose-ul:list-disc prose-ul:pl-5 prose-ul:space-y-1 prose-li:text-gray-700">
                         <ReactMarkdown
                           components={{
-                            h3: ({ ...props }) => (
-                              <h3 className="text-lg font-semibold text-gray-900 mt-6 mb-3 first:mt-0" {...props} />
+                            h3: ({ children, ...props }) => (
+                              <h3 className="text-lg font-semibold text-gray-900 mt-6 mb-3 first:mt-0" {...props}>{children}</h3>
                             ),
-                            h2: ({ ...props }) => (
-                              <h2 className="text-xl font-bold text-gray-900 mt-8 mb-4 first:mt-0" {...props} />
+                            h2: ({ children, ...props }) => (
+                              <h2 className="text-xl font-bold text-gray-900 mt-8 mb-4 first:mt-0" {...props}>{children}</h2>
                             ),
                             p: ({ ...props }) => (
                               <p className="text-gray-700 leading-relaxed mb-4" {...props} />

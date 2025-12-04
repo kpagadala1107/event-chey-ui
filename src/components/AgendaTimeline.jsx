@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   CalendarIcon,
@@ -23,7 +23,7 @@ const AgendaTimeline = ({
   const navigate = useNavigate();
   
   // Smart date selection: current day if ongoing, first day if upcoming, last day if past
-  const getInitialDate = () => {
+  const getInitialDate = useCallback(() => {
     if (!event || !event.startDate || !event.endDate) return new Date();
     
     const today = new Date();
@@ -47,7 +47,7 @@ const AgendaTimeline = ({
     
     // If event has passed (today is after end), select last day
     return endDate;
-  };
+  }, [event]);
   
   const [selectedDate, setSelectedDate] = useState(getInitialDate());
   
@@ -56,7 +56,7 @@ const AgendaTimeline = ({
     if (event && event.startDate && event.endDate) {
       setSelectedDate(getInitialDate());
     }
-  }, [event, event?.startDate, event?.endDate, getInitialDate]);
+  }, [event, getInitialDate]);
 
   // Generate time slots (6 AM to 11 PM in 30-min intervals)
   const generateTimeSlots = () => {
