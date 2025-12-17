@@ -6,10 +6,15 @@ import {
   SparklesIcon,
   CalendarIcon,
   MapPinIcon,
-  UserGroupIcon 
+  UserGroupIcon,
+  CheckIcon,
+  XMarkIcon,
+  QuestionMarkCircleIcon
 } from '@heroicons/react/24/outline';
 import { eventApi } from '../api/eventApi';
 import { agendaApi } from '../api/agendaApi';
+import { attendeeApi } from '../api/attendeeApi';
+import { useAuth } from '../context/AuthContext';
 import AgendaTimeline from '../components/AgendaTimeline';
 import AttendeeList from '../components/AttendeeList';
 import Button from '../components/UI/Button';
@@ -26,6 +31,7 @@ const EventDetailsPage = () => {
   const { eventId } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [isAddAgendaModalOpen, setIsAddAgendaModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('agenda'); // 'agenda', 'attendees', or 'summary'
   const [editingAgenda, setEditingAgenda] = useState(null);
@@ -90,6 +96,33 @@ const EventDetailsPage = () => {
       toast.success('Summary regenerated successfully!');
     },
   });
+
+  // RSVP mutation for attendees
+  const respondToInvitationMutation = useMutation({
+    mutationFn: (status) => attendeeApi.respondToInvitation(eventId, status),
+    onSuccess: (data, status) => {
+      queryClient.invalidateQueries({ queryKey: ['event', eventId] });
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+      queryClient.invalidateQueries({ queryKey: ['attendees', eventId] });
+      
+      const statusMessages = {
+        'ACCEPTED': 'You are now going to this event!',
+        'DECLINED': 'You have declined this invitation.',
+        'TENTATIVE': 'Your response has been marked as tentative.',
+      };
+      toast.success(statusMessages[status] || 'Response updated successfully!');
+    },
+    onError: () => {
+      toast.error('Failed to update your response');
+    },
+  });
+
+  // Check if current user is an attendee
+  const currentUserAttendee = event?.attendees?.find(
+    attendee => attendee.email === user?.email || attendee.id === user?.id
+  );
+
+  const isOrganizer = event?.createdBy === user?.id || event?.createdBy === user?.email;
 
   const formik = useFormik({
     initialValues: {
@@ -201,6 +234,45 @@ const EventDetailsPage = () => {
                 <p className="mt-4 text-gray-600">{event.description}</p>
               )}
             </div>
+
+            {/* RSVP Actions for Attendees */}
+            {currentUserAttendee && !isOrganizer && (
+              <div className="flex flex-col gap-2 md:min-w-[200px]">
+                <div className="text-sm text-gray-500 mb-1">
+                  Your Response: <span className="font-semibold capitalize">{currentUserAttendee.status?.toLowerCase()}</span>
+                </div>
+                <Button
+                  size="sm"
+                  variant={currentUserAttendee.status?.toLowerCase() === 'accepted' ? 'primary' : 'secondary'}
+                  onClick={() => respondToInvitationMutation.mutate('ACCEPTED')}
+                  disabled={respondToInvitationMutation.isPending}
+                  className="w-full"
+                >
+                  <CheckIcon className="h-4 w-4 mr-1" />
+                  Accept
+                </Button>
+                <Button
+                  size="sm"
+                  variant={currentUserAttendee.status?.toLowerCase() === 'tentative' ? 'primary' : 'secondary'}
+                  onClick={() => respondToInvitationMutation.mutate('TENTATIVE')}
+                  disabled={respondToInvitationMutation.isPending}
+                  className="w-full"
+                >
+                  <QuestionMarkCircleIcon className="h-4 w-4 mr-1" />
+                  Tentative
+                </Button>
+                <Button
+                  size="sm"
+                  variant={currentUserAttendee.status?.toLowerCase() === 'declined' ? 'danger' : 'secondary'}
+                  onClick={() => respondToInvitationMutation.mutate('DECLINED')}
+                  disabled={respondToInvitationMutation.isPending}
+                  className="w-full"
+                >
+                  <XMarkIcon className="h-4 w-4 mr-1" />
+                  Decline
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </div>

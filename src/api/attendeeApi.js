@@ -21,6 +21,12 @@ export const attendeeApi = {
     const response = await axiosClient.patch(`/events/${eventId}/attendees/${attendeeId}`, { status });
     return response.data;
   },
+
+  // Update response for current user (self-response)
+  respondToInvitation: async (eventId, status) => {
+    const response = await axiosClient.patch(`/events/${eventId}/attendees/me/respond`, { status });
+    return response.data;
+  },
 };
 
 export default attendeeApi;
