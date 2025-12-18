@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
@@ -40,6 +40,13 @@ const AgendaPage = () => {
   const [pollOptions, setPollOptions] = useState(['', '']);
   const [editingAgenda, setEditingAgenda] = useState(null);
   const [isEditingAgendaDetails, setIsEditingAgendaDetails] = useState(false);
+
+  // Ensure URL has the correct tab parameter when agendaId exists
+  useEffect(() => {
+    if (agendaId && !searchParams.get('tab')) {
+      setSearchParams({ tab: 'details' }, { replace: true });
+    }
+  }, [agendaId, searchParams, setSearchParams]);
 
   // Fetch event details for date range
   const { data: event } = useQuery({
@@ -671,43 +678,49 @@ const AgendaPage = () => {
         )}
 
         {/* Agenda Details Tab */}
-        {showDetailView && activeTab === 'details' && agendaItem && (
+        {showDetailView && activeTab === 'details' && (
           <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-            <div className="bg-gradient-to-r from-indigo-500 to-purple-600 px-6 py-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-semibold text-white">Agenda Details</h2>
-                {!isEditingAgendaDetails ? (
-                  <Button
-                    variant="outline"
-                    onClick={handleEditAgendaDetails}
-                    className="bg-white text-indigo-600 hover:bg-gray-50"
-                  >
-                    <PencilIcon className="h-5 w-5 mr-2" />
-                    Edit
-                  </Button>
-                ) : (
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={() => agendaFormik.handleSubmit()}
-                      loading={updateAgendaMutation.isPending}
-                      className="bg-white text-indigo-600 hover:bg-gray-50"
-                    >
-                      Save Changes
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      onClick={handleCancelEditAgendaDetails}
-                      className="bg-white/20 text-white hover:bg-white/30"
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                )}
+            {isLoadingAgenda ? (
+              <div className="flex items-center justify-center py-12">
+                <Spinner size="xl" />
               </div>
-            </div>
+            ) : agendaItem ? (
+              <>
+                <div className="bg-gradient-to-r from-indigo-500 to-purple-600 px-6 py-4">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-2xl font-semibold text-white">Agenda Details</h2>
+                    {!isEditingAgendaDetails ? (
+                      <Button
+                        variant="outline"
+                        onClick={handleEditAgendaDetails}
+                        className="bg-white text-indigo-600 hover:bg-gray-50"
+                      >
+                        <PencilIcon className="h-5 w-5 mr-2" />
+                        Edit
+                      </Button>
+                    ) : (
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => agendaFormik.handleSubmit()}
+                          loading={updateAgendaMutation.isPending}
+                          className="bg-white text-indigo-600 hover:bg-gray-50"
+                        >
+                          Save Changes
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          onClick={handleCancelEditAgendaDetails}
+                          className="bg-white/20 text-white hover:bg-white/30"
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
 
-            <div className="p-6">
-              {!isEditingAgendaDetails ? (
+                <div className="p-6">
+                  {!isEditingAgendaDetails ? (
                 <div className="space-y-6">
                   {/* Title */}
                   <div>
@@ -903,6 +916,16 @@ const AgendaPage = () => {
                 </form>
               )}
             </div>
+              </>
+            ) : (
+              <div className="flex items-center justify-center py-12">
+                <EmptyState
+                  icon={CalendarIcon}
+                  title="Agenda item not found"
+                  description="This agenda item may have been deleted or doesn't exist."
+                />
+              </div>
+            )}
           </div>
         )}
 

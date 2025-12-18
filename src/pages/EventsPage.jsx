@@ -67,8 +67,8 @@ const formik = useFormik({
   onSubmit: (values) => {
     const payload = {
       ...values,
-      startDate: new Date(values.startDate).toISOString(),
-      endDate: new Date(values.endDate).toISOString(),
+      startDate: values.startDate,
+      endDate: values.endDate,
     };
     createEventMutation.mutate(payload);
   },

@@ -29,6 +29,7 @@ const EventDetailsPage = () => {
   const [isAddAgendaModalOpen, setIsAddAgendaModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('agenda'); // 'agenda', 'attendees', or 'summary'
   const [editingAgenda, setEditingAgenda] = useState(null);
+  const [selectedAgendaDate, setSelectedAgendaDate] = useState(null);
 
   const { data: event, isLoading: isLoadingEvent } = useQuery({
     queryKey: ['event', eventId],
@@ -109,10 +110,23 @@ const EventDetailsPage = () => {
       location: Yup.string(),
     }),
     onSubmit: (values) => {
+      // Convert time strings to full date timestamps using selected date from timeline
+      const agendaDate = selectedAgendaDate 
+        ? new Date(selectedAgendaDate).toISOString().split('T')[0]
+        : event?.startDate 
+          ? new Date(event.startDate).toISOString().split('T')[0] 
+          : new Date().toISOString().split('T')[0];
+      
+      const agendaData = {
+        ...values,
+        startTime: `${agendaDate}T${values.startTime}:00`,
+        endTime: `${agendaDate}T${values.endTime}:00`,
+      };
+
       if (editingAgenda) {
-        updateAgendaMutation.mutate({ agendaId: editingAgenda.id, data: values });
+        updateAgendaMutation.mutate({ agendaId: editingAgenda.id, data: agendaData });
       } else {
-        addAgendaMutation.mutate(values);
+        addAgendaMutation.mutate(agendaData);
       }
     },
   });
@@ -254,6 +268,7 @@ const EventDetailsPage = () => {
                 onEdit={handleEditAgenda}
                 onDelete={handleDeleteAgenda}
                 onAddNew={handleAddNewAgenda}
+                onDateChange={setSelectedAgendaDate}
                 showAddButton={true}
               />
             )}
@@ -384,6 +399,17 @@ const EventDetailsPage = () => {
         title={editingAgenda ? 'Edit Agenda Item' : 'Add Agenda Item'}
       >
         <form onSubmit={formik.handleSubmit} className="space-y-4">
+          {selectedAgendaDate && (
+            <div className="bg-indigo-50 border border-indigo-200 rounded-lg px-4 py-3 mb-2">
+              <div className="flex items-center text-sm text-indigo-700">
+                <CalendarIcon className="h-4 w-4 mr-2" />
+                <span className="font-medium">
+                  Schedule for: {format(selectedAgendaDate, 'MMMM dd, yyyy')}
+                </span>
+              </div>
+            </div>
+          )}
+          
           <Input
             label="Title"
             name="title"

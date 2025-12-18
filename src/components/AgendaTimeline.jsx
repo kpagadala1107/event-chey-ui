@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   CalendarIcon,
@@ -18,6 +18,7 @@ const AgendaTimeline = ({
   onEdit, 
   onDelete, 
   onAddNew,
+  onDateChange,
   showAddButton = true 
 }) => {
   const navigate = useNavigate();
@@ -49,14 +50,28 @@ const AgendaTimeline = ({
     return endDate;
   }, [event]);
   
-  const [selectedDate, setSelectedDate] = useState(getInitialDate());
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [isInitialized, setIsInitialized] = useState(false);
   
   // Update selected date when event data loads or changes
   useEffect(() => {
-    if (event && event.startDate && event.endDate) {
-      setSelectedDate(getInitialDate());
+    if (event && event.startDate && event.endDate && !isInitialized) {
+      const initialDate = getInitialDate();
+      setSelectedDate(initialDate);
+      setIsInitialized(true);
+      if (onDateChange) {
+        onDateChange(initialDate);
+      }
     }
-  }, [event, getInitialDate]);
+  }, [event, getInitialDate, onDateChange, isInitialized]);
+
+  // Notify parent component when selected date changes
+  const handleDateChange = (date) => {
+    setSelectedDate(date);
+    if (onDateChange) {
+      onDateChange(date);
+    }
+  };
 
   // Generate time slots (6 AM to 11 PM in 30-min intervals)
   const generateTimeSlots = () => {
@@ -94,7 +109,7 @@ const AgendaTimeline = ({
   };
 
   const handleViewAgenda = (agenda) => {
-    navigate(`/events/${event.id}/agenda/${agenda.id}?tab=summary`);
+    navigate(`/events/${event.id}/agenda/${agenda.id}?tab=details`);
   };
 
   // Calculate agenda item position on timeline
@@ -132,9 +147,9 @@ const AgendaTimeline = ({
     return timeString;
   };
 
-  // Filter agenda items by selected date
-  const getFilteredItems = () => {
-    if (!agendaItems || agendaItems.length === 0) return [];
+  // Filter agenda items by selected date - using useMemo to ensure it recalculates when dependencies change
+  const filteredItems = useMemo(() => {
+    if (!agendaItems || agendaItems.length === 0 || !selectedDate) return [];
     
     const selectedDateStr = selectedDate.toISOString().split('T')[0];
     return agendaItems.filter(item => {
@@ -142,9 +157,14 @@ const AgendaTimeline = ({
       const itemDate = item.startTime.split('T')[0];
       return itemDate === selectedDateStr;
     });
-  };
+  }, [agendaItems, selectedDate]);
 
-  const filteredItems = getFilteredItems();
+  // Debug: Log when relevant data changes
+  useEffect(() => {
+    console.log('AgendaTimeline - selectedDate:', selectedDate);
+    console.log('AgendaTimeline - agendaItems:', agendaItems);
+    console.log('AgendaTimeline - filteredItems count:', filteredItems.length);
+  }, [selectedDate, agendaItems, filteredItems]);
 
   return (
     <div>
@@ -168,9 +188,9 @@ const AgendaTimeline = ({
           {eventDates.map((date) => (
             <button
               key={date.toISOString()}
-              onClick={() => setSelectedDate(date)}
+              onClick={() => handleDateChange(date)}
               className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
-                selectedDate.toDateString() === date.toDateString()
+                selectedDate && selectedDate.toDateString() === date.toDateString()
                   ? 'bg-indigo-600 text-white shadow-md'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
@@ -206,7 +226,7 @@ const AgendaTimeline = ({
           <div className="flex-1 relative">
             <div className="h-12 border-b border-gray-200 flex items-center px-4">
               <span className="text-sm font-medium text-gray-700">
-                {formatDate(selectedDate)}
+                {selectedDate ? formatDate(selectedDate) : 'Select a date'}
               </span>
             </div>
             <div className="relative" style={{ height: '1020px' }}>
@@ -231,7 +251,7 @@ const AgendaTimeline = ({
                   return (
                     <div
                       key={item.id}
-                      className="absolute left-2 right-2 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg shadow-md p-3 cursor-pointer hover:shadow-lg transition-all group"
+                      className="absolute left-2 right-2 bg-gradient-to-br from-blue-500 to-blue-300 rounded-lg shadow-md p-3 cursor-pointer hover:shadow-lg transition-all group"
                       style={position}
                       onClick={() => handleViewAgenda(item)}
                     >
